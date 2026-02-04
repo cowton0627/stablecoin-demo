@@ -2,39 +2,131 @@
 <html lang="zh-Hant">
 <head>
   <meta charset="UTF-8" />
-  <title>Connect Wallet Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Stablecoin Demo</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans TC", Arial, sans-serif; padding: 16px; }
+    button { padding: 10px 14px; font-size: 16px; }
+    .row { margin-top: 12px; word-break: break-all; }
+    .muted { color: #666; }
+    .box { margin-top: 12px; padding: 12px; border: 1px solid #ddd; border-radius: 10px; }
+  </style>
 </head>
 <body>
   <button id="connectBtn">連接 MetaMask</button>
-  <p id="address"></p>
+
+  <div class="box">
+    <div class="row"><b>狀態：</b><span id="status" class="muted">尚未連接</span></div>
+    <div class="row"><b>已連接錢包：</b><span id="address" class="muted">-</span></div>
+    <div class="row"><b>網路：</b><span id="network" class="muted">-</span></div>
+    <div class="row"><b>cUSD 餘額：</b><span id="cusdBalance" class="muted">-</span></div>
+  </div>
 
   <!-- ethers v6 -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
 
   <script>
-    const connectBtn = document.getElementById("connectBtn");
-    const addressEl = document.getElementById("address");
+    // ====== 你只需要改這裡 ======
+    // 你的 CompanyStablecoin 合約地址（部署到測試鏈後的地址）
+    const TOKEN_ADDRESS = "0xYourCompanyStablecoinAddressHere";
+    // ==========================
 
-    connectBtn.onclick = async () => {
-      if (!window.ethereum) {
-        alert("請先安裝 MetaMask");
+    // 最小 ERC20 ABI：只要讀 decimals / symbol / balanceOf 就夠
+    const ERC20_ABI = [
+      "function symbol() view returns (string)",
+      "function decimals() view returns (uint8)",
+      "function balanceOf(address) view returns (uint256)"
+    ];
+
+    const connectBtn = document.getElementById("connectBtn");
+    const statusEl = document.getElementById("status");
+    const addressEl = document.getElementById("address");
+    const networkEl = document.getElementById("network");
+    const cusdBalanceEl = document.getElementById("cusdBalance");
+
+    let provider;
+    let signer;
+    let userAddress;
+
+    function setStatus(text) {
+      statusEl.textContent = text;
+    }
+
+    async function showNetwork() {
+      const net = await provider.getNetwork();
+      // net.chainId 是 bigint（ethers v6）
+      networkEl.textContent = `${net.name} (chainId: ${net.chainId.toString()})`;
+    }
+
+    async function showCusdBalance() {
+      if (!TOKEN_ADDRESS || TOKEN_ADDRESS === "0xYourCompanyStablecoinAddressHere") {
+        cusdBalanceEl.textContent = "請先在 TOKEN_ADDRESS 填入你的合約地址";
         return;
       }
 
-      // 1. 要求連接錢包
-      const accounts = await window.ethereum.request({
-        method: "eth_requestAccounts"
+      const token = new ethers.Contract(TOKEN_ADDRESS, ERC20_ABI, provider);
+
+      // 讀 token 基本資料（symbol/decimals）+ 餘額
+      const [symbol, decimals, bal] = await Promise.all([
+        token.symbol(),
+        token.decimals(),
+        token.balanceOf(userAddress)
+      ]);
+
+      const formatted = ethers.formatUnits(bal, decimals);
+      cusdBalanceEl.textContent = `${formatted} ${symbol}`;
+    }
+
+    async function connect() {
+      try {
+        if (!window.ethereum) {
+          alert("找不到 MetaMask（請用 MetaMask App 的 Browser 開啟，或電腦安裝 MetaMask 擴充）");
+          return;
+        }
+
+        setStatus("請在 MetaMask 確認連接…");
+
+        // 要求連接錢包（會跳 MetaMask）
+        const accounts = await window.ethereum.request({ method: "eth_requestAccounts" });
+        userAddress = accounts[0];
+
+        // 建立 provider/signer
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+
+        addressEl.textContent = userAddress;
+        setStatus("已連接");
+
+        await showNetwork();
+        await showCusdBalance();
+      } catch (err) {
+        console.error(err);
+        setStatus("連接失敗 / 使用者取消");
+      }
+    }
+
+    // 點按鈕連接
+    connectBtn.addEventListener("click", connect);
+
+    // （加分）如果使用者在 MetaMask 切帳號/切網路，自動更新
+    if (window.ethereum) {
+      window.ethereum.on?.("accountsChanged", async (accounts) => {
+        if (!accounts || accounts.length === 0) return;
+        userAddress = accounts[0];
+        addressEl.textContent = userAddress;
+        setStatus("已連接（帳號已切換）");
+        await showCusdBalance();
       });
 
-      const userAddress = accounts[0];
-      addressEl.innerText = `已連接錢包：${userAddress}`;
-
-      // 2. （可選）建立 ethers provider / signer
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signer = await provider.getSigner();
-
-      console.log("Signer address:", await signer.getAddress());
-    };
+      window.ethereum.on?.("chainChanged", async () => {
+        // chainChanged 會建議直接 reload，但我們這裡選擇重新讀一次
+        provider = new ethers.BrowserProvider(window.ethereum);
+        signer = await provider.getSigner();
+        setStatus("已連接（網路已切換）");
+        await showNetwork();
+        await showCusdBalance();
+      });
+    }
   </script>
 </body>
 </html>
