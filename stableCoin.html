@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>Connect Wallet Demo</title>
+</head>
+<body>
+  <button id="connectBtn">連接 MetaMask</button>
+  <p id="address"></p>
+
+  <!-- ethers v6 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@6.10.0/dist/ethers.umd.min.js"></script>
+
+  <script>
+    const connectBtn = document.getElementById("connectBtn");
+    const addressEl = document.getElementById("address");
+
+    connectBtn.onclick = async () => {
+      if (!window.ethereum) {
+        alert("請先安裝 MetaMask");
+        return;
+      }
+
+      // 1. 要求連接錢包
+      const accounts = await window.ethereum.request({
+        method: "eth_requestAccounts"
+      });
+
+      const userAddress = accounts[0];
+      addressEl.innerText = `已連接錢包：${userAddress}`;
+
+      // 2. （可選）建立 ethers provider / signer
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const signer = await provider.getSigner();
+
+      console.log("Signer address:", await signer.getAddress());
+    };
+  </script>
+</body>
+</html>
