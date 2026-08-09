@@ -1,0 +1,44 @@
+# .gitignore
+
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.local.xcconfig
+
+# Build and derived files
+build/
+dist/
+out/
+artifacts/
+cache/
+typechain-types/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE and AI tools
+.vscode/
+.idea/
+.obsidian/
+.claude/
+CLAUDE.md
+AGENT.md
+GEMINI.md
+.codex/
+
+# Temporary files
+tmp/
+temp/
