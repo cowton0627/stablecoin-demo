@@ -42,3 +42,6 @@ GEMINI.md
 # Temporary files
 tmp/
 temp/
+Pods/
+xcuserdata/
+DerivedData/
